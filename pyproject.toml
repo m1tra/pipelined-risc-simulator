@@ -5,7 +5,15 @@ line-length = 120
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "D",
+    "CPY001",   # копирайт-шапка не нужна
+    "D",        # не требуем docstring в каждом модуле/функции
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",     # assert - стандарт pytest
+    "PLR2004",  # магические константы в тестах - норма
+    "INP001",   # tests не обязан быть пакетом
 ]
 
 [tool.mypy]
