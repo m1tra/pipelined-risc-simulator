@@ -29,8 +29,83 @@
 ## Язык программирования
 
 ``` ebnf
+program ::= { line | macro | conditional }
 
+line ::= [ label ] [ instruction | pseudo | directive | macro_call ] endline
+
+label ::= IDENT ":"
+
+endline ::= [ COMMENT ] NEWLINE
+
+instruction ::= "halt" | "nop" | "ret" | "iret" | "ei" | "di"
+              | operation register "," register "," register
+              | "addi" register "," register "," value
+              | "lui" register "," value
+              | ("lw" | "sw" | "lbu" | "sb") register "," address
+              | branch register "," register "," IDENT
+              | ("j" | "call") IDENT
+
+pseudo ::= "li" register "," value
+         | "la" register "," IDENT
+         | "mv" register "," register
+
+operation ::= "add" | "sub" | "mul" | "div"
+            | "and" | "or" | "xor"
+            | "sll" | "srl" | "sra"
+
+branch ::= "beq" | "bne" | "blt" | "bge" | "bltu" | "bgeu"
+
+register ::= "r0" | "r1" | "r2" | "r3"
+           | "r4" | "r5" | "r6" | "r7"
+           | "r8" | "r9" | "r10" | "r11"
+           | "r12" | "r13" | "r14" | "r15"
+           | "sp" | "ra"
+
+value ::= NUMBER | "-" NUMBER | CHAR | IDENT
+
+address ::= "[" register [ ("+" | "-") ( NUMBER | IDENT ) ] "]"
+
+directive ::= ".text" | ".data"
+            | ".org" value
+            | ".equ" IDENT "," value
+            | (".word" | ".byte") value { "," value }
+            | ".space" value
+            | ".pstr" STRING
+            | (".global" | ".extern") IDENT
+
+macro ::= ".macro" IDENT [ IDENT { "," IDENT } ] endline
+          program
+          ".endm" endline
+
+macro_call ::= "@" IDENT [ value { "," value } ]
+
+conditional ::= ".if" value endline
+                program
+                [ ".else" endline program ]
+                ".endif" endline
 ```
+
+Токены:
+
+``` ebnf
+IDENT   ::= ( letter | "_" ) { letter | digit | "_" }
+NUMBER  ::= digit { digit } | "0x" hex_digit { hex_digit }
+CHAR    ::= "'" ( char | escape ) "'"
+STRING  ::= '"' { char | escape } '"'
+escape  ::= "\n" | "\t" | "\0" | "\\" | "\'" | '\"'
+COMMENT ::= ";" { char }
+```
+
+Псевдоинструкции раскрываются транслятором и не являются инструкциями процессора:
+
+- `li rd, value` - `lui rd, (value >> 12)` + `addi rd, rd, (value & 0xFFF)` (или одна `addi rd, r0, value`, если значение помещается в immediate)
+- `la rd, label` - `li` с адресом метки
+- `mv rd, rs` - `addi rd, rs, 0`
+
+Соглашения о регистрах (программные, не аппаратные):
+
+- `sp` - псевдоним `r14`, указатель стека (стек растёт вниз)
+- `ra` - псевдоним `r15`, адрес возврата
 
 Код выполняется последовательно. Операции:
 
