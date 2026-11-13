@@ -1,8 +1,17 @@
 from enum import Enum, IntEnum
 
+OP_SHIFT = 26
+RD_SHIFT = 22
+RS1_SHIFT = 18
+RS2_SHIFT = 14
+
+MASK12 = 0xFFF
+MASK18 = 0x3FFFF
+MASK20 = 0xFFFFF
+MASK26 = 0x3FFFFFF
+
 
 class Opcode(IntEnum):
-
     NOP = 0x00
 
     ADD = 0x01
@@ -47,9 +56,8 @@ class Opcode(IntEnum):
 
 
 class Format(Enum):
-    
     A = "A"
-    I = "I"
+    I = "I"  # noqa: E741
     LS = "LS"
     B = "B"
     U = "U"
@@ -89,3 +97,38 @@ OPCODE_FORMAT: dict[Opcode, Format] = {
     Opcode.DI: Format.NONE,
     Opcode.HALT: Format.NONE,
 }
+
+
+def encode_a(op: Opcode, rd: int, rs1: int, rs2: int) -> int:
+    """op[31:26] rd[25:22] rs1[21:18] rs2[17:14] 0[13:0]"""
+    return (op << OP_SHIFT) | (rd << RD_SHIFT) | (rs1 << RS1_SHIFT) | (rs2 << RS2_SHIFT)
+
+
+def encode_i(op: Opcode, rd: int, rs1: int, imm12: int) -> int:
+    """op[31:26] rd[25:22] rs1[21:18] 0[17:12] imm12[11:0]"""
+    return (op << OP_SHIFT) | (rd << RD_SHIFT) | (rs1 << RS1_SHIFT) | (imm12 & MASK12)
+
+
+def encode_ls(op: Opcode, rd: int, rs1: int, off18: int) -> int:
+    """op[31:26] rd[25:22] rs1[21:18] off18[17:0]"""
+    return (op << OP_SHIFT) | (rd << RD_SHIFT) | (rs1 << RS1_SHIFT) | (off18 & MASK18)
+
+
+def encode_b(op: Opcode, rs1: int, rs2: int, off18: int) -> int:
+    """op[31:26] rs1[25:22] rs2[21:18] off18[17:0]"""
+    return (op << OP_SHIFT) | (rs1 << RD_SHIFT) | (rs2 << RS1_SHIFT) | (off18 & MASK18)
+
+
+def encode_u(op: Opcode, rd: int, imm20: int) -> int:
+    """op[31:26] rd[25:22] 0[21:20] imm20[19:0]"""
+    return (op << OP_SHIFT) | (rd << RD_SHIFT) | (imm20 & MASK20)
+
+
+def encode_j(op: Opcode, addr26: int) -> int:
+    """op[31:26] addr26[25:0]"""
+    return (op << OP_SHIFT) | (addr26 & MASK26)
+
+
+def encode_n(op: Opcode) -> int:
+    """op[31:26] 0[25:0]"""
+    return op << OP_SHIFT
