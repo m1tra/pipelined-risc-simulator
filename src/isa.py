@@ -1,3 +1,44 @@
-# описание кодирование инструкций
+from enum import IntEnum
 
 
+class Opcode(IntEnum):
+    NOP = 0x00
+
+    ADD = 0x01
+    SUB = 0x02
+    MUL = 0x03
+    DIV = 0x04
+    AND = 0x05
+    OR = 0x06
+    XOR = 0x07
+    SLL = 0x08
+    SRL = 0x09
+    SRA = 0x0A
+
+    ADDI = 0x0B
+    LUI = 0x0C
+
+    LW = 0x0D
+    SW = 0x0E
+    LBU = 0x0F
+    SB = 0x10
+
+    BEQ = 0x11
+    BNE = 0x12
+    BLT = 0x13
+    BGE = 0x14
+    BLTU = 0x15
+    BGEU = 0x16
+
+    J = 0x17
+    CALL = 0x18
+    RET = 0x19
+
+    IRET = 0x1A
+    EI = 0x1B
+    DI = 0x1C
+
+    HALT = 0x3F
+
+    def __str__(self) -> str:
+        return self.name
