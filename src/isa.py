@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum, IntEnum
 
 OP_SHIFT = 26
@@ -9,6 +10,9 @@ MASK12 = 0xFFF
 MASK18 = 0x3FFFF
 MASK20 = 0xFFFFF
 MASK26 = 0x3FFFFFF
+
+OP_MASK = 0x3F
+REG_MASK = 0x0F
 
 
 class Opcode(IntEnum):
@@ -63,6 +67,15 @@ class Format(Enum):
     U = "U"
     J = "J"
     NONE = "N"
+
+
+@dataclass
+class Instruction:
+    opcode: Opcode
+    rd: int = 0
+    rs1: int = 0
+    rs2: int = 0
+    imm: int = 0
 
 
 OPCODE_FORMAT: dict[Opcode, Format] = {
@@ -132,3 +145,35 @@ def encode_j(op: Opcode, addr26: int) -> int:
 def encode_n(op: Opcode) -> int:
     """op[31:26] 0[25:0]"""
     return op << OP_SHIFT
+
+
+def sign_extend(word: int, size: int) -> int:
+    sign_pos = 1 << (size - 1)
+    return (word ^ sign_pos) - sign_pos
+
+
+def decode(word: int) -> Instruction:  # noqa: PLR0911
+    op = Opcode((word >> OP_SHIFT) & OP_MASK)
+    fmt = OPCODE_FORMAT.get(op)
+
+    rd = (word >> RD_SHIFT) & 0xF
+    rs1 = (word >> RS1_SHIFT) & 0xF
+    rs2 = (word >> RS2_SHIFT) & 0xF
+
+    match fmt:
+        case Format.A:
+            return Instruction(op, rd, rs1, rs2)
+        case Format.I:
+            return Instruction(op, rd, rs1, imm=sign_extend(word & MASK12, 12))
+        case Format.LS:
+            return Instruction(op, rd, rs1, imm=sign_extend(word & MASK18, 18))
+        case Format.B:
+            return Instruction(op, rs1=rd, rs2=rs1, imm=sign_extend(word & MASK18, 18))
+        case Format.U:
+            return Instruction(op, rd, imm=word & MASK20)
+        case Format.J:
+            return Instruction(op, imm=word & MASK26)
+        case Format.NONE:
+            return Instruction(op)
+        case _:
+            raise ValueError(f"неизвестный опкод {op}")
