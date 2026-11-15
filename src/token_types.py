@@ -1,24 +1,24 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TokenType(str, Enum):
-    IDENT     = "IDENT"
-    
-    NUMBER    = "NUMBER"
-    CHAR      = "CHAR"
-    STRING    = "STRING"
+class TokenType(StrEnum):
+    IDENT = "IDENT"
 
-    REGISTER  = "REGISTER"
-    MNEMONIC  = "MNEMONIC"
+    NUMBER = "NUMBER"
+    CHAR = "CHAR"
+    STRING = "STRING"
+
+    REGISTER = "REGISTER"
+    MNEMONIC = "MNEMONIC"
     DIRECTIVE = "DIRECTIVE"
 
-    COLON     = "COLON"
-    COMMA     = "COMMA"
-    LBRACKET  = "LBRACKET"
-    RBRACKET  = "RBRACKET"
-    PLUS      = "PLUS"
-    MINUS     = "MINUS"
-    AT        = "AT"
+    COLON = "COLON"
+    COMMA = "COMMA"
+    LBRACKET = "LBRACKET"
+    RBRACKET = "RBRACKET"
+    PLUS = "PLUS"
+    MINUS = "MINUS"
+    AT = "AT"
 
-    NEWLINE   = "NEWLINE"
-    EOF       = "EOF"
+    NEWLINE = "NEWLINE"
+    EOF = "EOF"

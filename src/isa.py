@@ -197,6 +197,3 @@ def to_bytes(words: list[int]) -> bytes:
 
 def from_bytes(data: bytes) -> list[int]:
     return [int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)]
-
-
-# todo: to hex
