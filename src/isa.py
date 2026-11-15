@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, IntEnum
+from typing import NamedTuple
 
 OP_SHIFT = 26
 RD_SHIFT = 22
@@ -13,6 +14,12 @@ MASK26 = 0x3FFFFFF
 
 OP_MASK = 0x3F
 REG_MASK = 0x0F
+
+
+class Term(NamedTuple):
+    file: str
+    line: int
+    text: str
 
 
 class Opcode(IntEnum):
@@ -176,4 +183,17 @@ def decode(word: int) -> Instruction:  # noqa: PLR0911
         case Format.NONE:
             return Instruction(op)
         case _:
-            raise ValueError(f"неизвестный опкод {op}")
+            msg = f"неизвестный опкод {op}"
+            raise ValueError(msg)
+
+
+def to_bytes(words: list[int]) -> bytes:
+    buf = bytearray()
+    for word in words:
+        buf.extend(word.to_bytes(4, "little"))
+
+    return bytes(buf)
+
+
+def from_bytes(data: bytes) -> list[int]:
+    return [int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)]
