@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import NamedTuple
 
+
 OP_SHIFT = 26
 RD_SHIFT = 22
 RS1_SHIFT = 18
@@ -83,7 +84,6 @@ class Instruction:
     rs1: int = 0
     rs2: int = 0
     imm: int = 0
-
 
 OPCODE_FORMAT: dict[Opcode, Format] = {
     Opcode.NOP: Format.NONE,

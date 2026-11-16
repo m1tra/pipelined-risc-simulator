@@ -91,8 +91,7 @@ IDENT   ::= ( letter | "_" ) { letter | digit | "_" }
 NUMBER  ::= digit { digit } | "0x" hex_digit { hex_digit }
 CHAR    ::= "'" ( char | escape ) "'"
 STRING  ::= '"' { char | escape } '"'
-escape  ::= "\n" | "\t" | "\0" | "\\" | "\'" | '\"'
-COMMENT ::= ";" { char }
+ESCAPE  ::= "\n" | "\t" | "\0" | "\\" | "\'" | '\"'
 ```
 
 Псевдоинструкции раскрываются транслятором и не являются инструкциями процессора:

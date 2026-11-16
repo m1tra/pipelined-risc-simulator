@@ -1,7 +1,5 @@
-from dataclasses import dataclass
-
 from isa import Opcode
-from token_types import TokenType
+from token_types import Token, TokenType
 
 DIRECTIVES = {
     ".text",
@@ -36,15 +34,6 @@ PUNCT = {
 }
 
 STOP = set(" \t;'\"") | set(PUNCT)
-
-
-@dataclass
-class Token:
-    token: TokenType
-    text: str
-    line_index: int
-    file: str
-
 
 class Lexer:
     def __init__(self, source: str, file: str) -> None:
