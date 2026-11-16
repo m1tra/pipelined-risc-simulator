@@ -19,6 +19,10 @@ DIRECTIVES = {
     ".endif",
 }
 
+MACRO_DERICTIVES = {
+    "",
+}
+
 REGISTERS = {**{f"r{i}": i for i in range(16)}, "sp": 14, "ra": 15}
 
 MNEMONICS = {str(op) for op in Opcode} | {"li", "la", "mv"}
@@ -34,6 +38,7 @@ PUNCT = {
 }
 
 STOP = set(" \t;'\"") | set(PUNCT)
+
 
 class Lexer:
     def __init__(self, source: str, file: str) -> None:

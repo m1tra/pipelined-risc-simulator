@@ -20,12 +20,13 @@ class TokenType(StrEnum):
     PLUS = "PLUS"
     MINUS = "MINUS"
     AT = "AT"
-    
+
     MACRO = "AT" + "IDENT"
 
     NEWLINE = "NEWLINE"
     EOF = "EOF"
-    
+
+
 @dataclass
 class Token:
     token: TokenType
