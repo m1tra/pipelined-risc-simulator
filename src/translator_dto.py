@@ -30,6 +30,11 @@ class Directive:
 class MacroCall:
     name: str
     args: list[int | str]
+    
+@dataclass
+class Equ:
+    name: str
+    value: int | str
 
 
 @dataclass
@@ -49,5 +54,5 @@ class Conditional:
 @dataclass
 class Statement:
     label: str | None
-    body: Instruction | Directive | MacroCall | MacroDef | Conditional
+    body: Instruction | Directive | MacroCall | MacroDef | Conditional | Equ
     term: Term

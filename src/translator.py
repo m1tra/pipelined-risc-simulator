@@ -1,7 +1,10 @@
 # транслятор
+import copy
+
 from isa import Term
+from lexer import REGISTERS, Lexer
 from token_types import Token, TokenType
-from translator_dto import Conditional, Directive, Instruction, MacroCall, MacroDef, Statement
+from translator_dto import Addr, Conditional, Directive, Equ, Instruction, MacroCall, MacroDef, Operand, Statement
 
 ESCAPES = {"n": "\n", "t": "\t", "0": "\0", "\\": "\\", "'": "'", '"': '"'}  # TODO вынести всё
 
@@ -66,7 +69,7 @@ class Parser:
         .macro NAME arg1, arg2, ...
 
             ...
-
+            
         .endm
         """
 
@@ -140,22 +143,53 @@ class Parser:
 
         return statements
 
-    def parse_instruction(self, head: Token, line):
-        op = head.text
-        operands = [tok for tok in line if tok.token != TokenType.COMMA]
-        return Instruction(op, operands)
+    def parse_operand(self, group: list[Token]) -> Operand:
+        first = group[0]
+
+        if first.token == TokenType.LBRACKET:
+            base = REGISTERS[group[1].text]
+            offset: int | str = 0
+            if len(group) > 3:
+                value = token_value(group[3])
+                if group[2].token == TokenType.MINUS and isinstance(value, int):
+                    value = -value
+                offset = value
+            return Addr(base, offset)
+
+        if first.token == TokenType.REGISTER:
+            return REGISTERS[first.text]
+        if first.token == TokenType.MINUS:
+            value = token_value(group[1])
+            return -value if isinstance(value, int) else value
+        return token_value(first)
+
+    def parse_instruction(self, head: Token, line: list[Token]) -> Instruction:
+        groups: list[list[Token]] = [[]]
+        for tok in line:
+            if tok.token == TokenType.COMMA:
+                groups.append([])
+            else:
+                groups[-1].append(tok)
+
+        return Instruction(head.text, [self.parse_operand(group) for group in groups])
 
     def parse_directive(self, head, line):
         name = head.text
-        args = [tok for tok in line[2:] if tok.token != TokenType.COMMA]
+        
+        args = [token_value(tok) for tok in line if tok.token != TokenType.COMMA]
+        
+        if name == ".equ":
+            
+            return Equ(args[0], args[1])
+    
         return Directive(
             name,
             args,
         )
 
     def parse_macro_call(self, head: Token, line: list[Token]):
-        name = line[1].text
-        args = [tok for tok in line[2:] if tok.token != TokenType.COMMA]
+        name = line[0].text
+        args = [token_value(tok) for tok in line[1:] if tok.token != TokenType.COMMA]
         return MacroCall(name, args)
 
     def parse_line(self, line: list[Token]) -> Statement:
@@ -185,3 +219,48 @@ class Parser:
                 " ".join(t.text for t in line),
             ),
         )
+
+
+class Preprocessor:
+    def __init__(self) -> None:
+        self.macros: dict[str, MacroDef] = {}
+        self.consts: dict[str, int] = {}
+        self.counter = 0
+
+    def expand_macro(self, call: MacroCall, definition: MacroDef, counter: int) -> list[Statement]:
+        pass
+
+    def run(self, statements: list[Statement]) -> list[Statement]:
+        out = []
+        for statement in statements:
+    
+            match statement.body:
+                case MacroDef() as m:
+                    self.macros[m.name] = m
+                case MacroCall() as call:
+                    expanded = self.expand_macro(call, self.macros[call.name], self.counter)
+                    self.counter += 1
+                    out.extend(self.run(expanded))
+                case Conditional() as c:
+                    cond = self.consts.get(c.condition, c.condition) if isinstance(c.condition, str) else c.condition
+                    out.extend(self.run(c.then_body if cond else (c.else_body or [])))
+                case Equ() as e:
+                    self.consts[e.name] = e.value
+                case _:
+                    out.append(statement)
+        return out
+                
+src = """\
+.org 0x80
+    
+.equ LED, 0x10        ; порт вывода
+
+"""
+
+lexer = Lexer(src, "sadf")
+
+
+tokens = lexer.get_tokens()
+
+parser = Parser(tokens)
+print(Preprocessor().run(parser.parse()))
