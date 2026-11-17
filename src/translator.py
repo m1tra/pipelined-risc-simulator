@@ -124,25 +124,7 @@ class Parser:
 
         term = Term(header[0].file, header[0].line_index, " ".join(t.text for t in header))
         return Statement(None, Conditional(condition, then_body, else_body), term), index + 1
-
-    def parse(self) -> list[Statement]:
-        lines = self.split_lines()
-        statements = []
-        i = 0
-        while i < len(lines):
-            head = lines[i][0]
-
-            if head.token == TokenType.DIRECTIVE and head.text == ".macro":
-                statement, i = self.parse_macro(lines, i)
-            elif head.token == TokenType.DIRECTIVE and head.text == ".if":
-                statement, i = self.parse_conditional(lines, i)
-            else:
-                statement = self.parse_line(lines[i])
-                i += 1
-            statements.append(statement)
-
-        return statements
-
+    
     def parse_operand(self, group: list[Token]) -> Operand:
         first = group[0]
 
@@ -170,7 +152,7 @@ class Parser:
                 groups.append([])
             else:
                 groups[-1].append(tok)
-
+  
         return Instruction(head.text, [self.parse_operand(group) for group in groups])
 
     def parse_directive(self, head, line):
@@ -221,18 +203,77 @@ class Parser:
         )
 
 
+    def parse(self) -> list[Statement]:
+        lines = self.split_lines()
+        statements = []
+        i = 0
+        while i < len(lines):
+            head = lines[i][0]
+
+            if head.token == TokenType.DIRECTIVE and head.text == ".macro":
+                statement, i = self.parse_macro(lines, i)
+            elif head.token == TokenType.DIRECTIVE and head.text == ".if":
+                statement, i = self.parse_conditional(lines, i)
+            else:
+                statement = self.parse_line(lines[i])
+                i += 1
+            statements.append(statement)
+
+        return statements
+    
+    
+
 class Preprocessor:
     def __init__(self) -> None:
         self.macros: dict[str, MacroDef] = {}
         self.consts: dict[str, int] = {}
         self.counter = 0
+        
+    # todo различные states и changes  
+        
+    def change_operand(self,op:Operand, args) -> Operand:
+        
+        if isinstance(op, str):
+            if op in args:
+                return args[op]
+            
+        return op
+        
+    def substitute_statement(self, statement: Statement, args):
+        
+        state = statement.body
+        
+        match state:
+            case Instruction() as i:
+                sub_args = [self.change_operand(operand, args) for operand in state.operands]
+
+        state.operands = sub_args
+        
+
 
     def expand_macro(self, call: MacroCall, definition: MacroDef, counter: int) -> list[Statement]:
-        pass
+        if len(call.args) != len(definition.params):
+            raise SyntaxError(f"макрос {call.name}: ожидается {len(definition.params)} аргументов, получено {len(call.args)}")
+
+        subst_args = dict(zip(definition.params, call.args, strict=True))
+        
+        expanded = []
+        
+        for statement in copy.deepcopy(definition.body):
+            
+            self.substitute_statement(statement, subst_args)
+            
+            expanded.append(statement)
+            
+        
+            
+        return expanded
+
 
     def run(self, statements: list[Statement]) -> list[Statement]:
         out = []
         for statement in statements:
+            
     
             match statement.body:
                 case MacroDef() as m:
@@ -251,10 +292,16 @@ class Preprocessor:
         return out
                 
 src = """\
-.org 0x80
-    
 .equ LED, 0x10        ; порт вывода
 
+.macro load_const value
+    li r1, value
+
+.endm
+
+sw r1, [r2-4] 
+
+@load_const 222
 """
 
 lexer = Lexer(src, "sadf")
