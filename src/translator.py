@@ -215,7 +215,9 @@ class Parser:
             elif head.token == TokenType.DIRECTIVE and head.text == ".if":
                 statement, i = self.parse_conditional(lines, i)
             else:
+                
                 statement = self.parse_line(lines[i])
+                
                 i += 1
             statements.append(statement)
 
@@ -231,7 +233,7 @@ class Preprocessor:
         
     # todo различные states и changes  
         
-    def change_operand(self,op:Operand, args) -> Operand:
+    def change_operand(self,op:Operand, args, local_labels, suffix) -> Operand:
         
         if isinstance(op, str):
             if op in args:
@@ -239,16 +241,41 @@ class Preprocessor:
             
         return op
         
-    def substitute_statement(self, statement: Statement, args):
+    def substitute_statement(self, statement: Statement, args, local_labels, suffix):
         
-        state = statement.body
-        
-        match state:
-            case Instruction() as i:
-                sub_args = [self.change_operand(operand, args) for operand in state.operands]
+        if statement.label and statement.label in local_labels:
 
-        state.operands = sub_args
+            statement.label += suffix
         
+        body = statement.body
+        
+        if isinstance(body, Instruction):
+            
+            body.operands = [self.change_operand(op, args, local_labels, suffix) for op in body.operands]
+        
+        elif isinstance(body, Equ):
+            
+            if isinstance(body.value, str) and body.value in args:
+                body.value = args[body.value]
+                
+        elif isinstance(body, MacroCall):
+            
+            body.args = [args.get(a, a) if isinstance(a, str) else a for a in body.args]
+                
+        elif isinstance(body, Directive):
+            
+            body.args = [args.get(a, a) if isinstance(a, str) else a for a in body.args]
+        
+        elif isinstance(body, Conditional):
+
+            if isinstance(body.condition, str) and body.condition in args:
+
+                body.condition = args[body.condition]
+
+            for s in body.then_body + (body.else_body or []):
+
+                self.substitute_statement(s, args, local_labels, suffix)
+                        
 
 
     def expand_macro(self, call: MacroCall, definition: MacroDef, counter: int) -> list[Statement]:
@@ -256,12 +283,14 @@ class Preprocessor:
             raise SyntaxError(f"макрос {call.name}: ожидается {len(definition.params)} аргументов, получено {len(call.args)}")
 
         subst_args = dict(zip(definition.params, call.args, strict=True))
+        local_labels = {s.label for s in definition.body if s.label}
+        suffix = f"__m{counter}"
         
         expanded = []
         
         for statement in copy.deepcopy(definition.body):
             
-            self.substitute_statement(statement, subst_args)
+            self.substitute_statement(statement, subst_args, local_labels, suffix)
             
             expanded.append(statement)
             
@@ -294,14 +323,13 @@ class Preprocessor:
 src = """\
 .equ LED, 0x10        ; порт вывода
 
-.macro load_const value
+.macro check value
     li r1, value
-
 .endm
 
 sw r1, [r2-4] 
 
-@load_const 222
+@check 222
 """
 
 lexer = Lexer(src, "sadf")
@@ -310,4 +338,9 @@ lexer = Lexer(src, "sadf")
 tokens = lexer.get_tokens()
 
 parser = Parser(tokens)
-print(Preprocessor().run(parser.parse()))
+for i in parser.parse():
+    print(i)
+
+
+Preprocessor().run(parser.parse())
+    
