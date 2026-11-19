@@ -1,6 +1,8 @@
 from dataclasses import dataclass
-from enum import Enum, IntEnum
-from typing import NamedTuple
+from enum import Enum
+
+from translator_dto import Addr, AsmInstruction
+from common import Opcode
 
 OP_SHIFT = 26
 RD_SHIFT = 22
@@ -15,55 +17,6 @@ MASK26 = 0x3FFFFFF
 OP_MASK = 0x3F
 REG_MASK = 0x0F
 
-
-class Term(NamedTuple):
-    file: str
-    line: int
-    text: str
-
-
-class Opcode(IntEnum):
-    NOP = 0x00
-
-    ADD = 0x01
-    SUB = 0x02
-    MUL = 0x03
-    DIV = 0x04
-    AND = 0x05
-    OR = 0x06
-    XOR = 0x07
-    SLL = 0x08
-    SRL = 0x09
-    SRA = 0x0A
-
-    ADDI = 0x0B
-
-    LW = 0x0C
-    SW = 0x0D
-    LBU = 0x0E
-    SB = 0x0F
-
-    BEQ = 0x10
-    BNE = 0x11
-    BLT = 0x12
-    BGE = 0x13
-    BLTU = 0x14
-    BGEU = 0x15
-
-    LUI = 0x16
-
-    J = 0x17
-    CALL = 0x18
-    RET = 0x19
-
-    IRET = 0x1A
-    EI = 0x1B
-    DI = 0x1C
-
-    HALT = 0x3F
-
-    def __str__(self) -> str:
-        return self.name.lower()
 
 
 class Format(Enum):
@@ -158,6 +111,49 @@ def sign_extend(word: int, size: int) -> int:
     sign_pos = 1 << (size - 1)
     return (word ^ sign_pos) - sign_pos
 
+def convert_asm_inst_to_inst(inst: AsmInstruction) -> int:
+    if isinstance(inst.op, str):
+        inst.op = Opcode[inst.op.upper()]
+    return encode(inst)
+
+
+def _imm(value: int | str, what: str) -> int:
+    if isinstance(value, str):
+        msg = f"неразрешённая метка/символ {value!r} в поле {what}"
+        raise ValueError(msg)
+    return value
+
+
+def encode(instruction: AsmInstruction) -> int:  # noqa: PLR0911
+    op = instruction.op
+    operands = instruction.operands
+
+    match OPCODE_FORMAT[op]:
+        case Format.A:
+            rd, rs1, rs2 = operands
+            return encode_a(op, rd, rs1, rs2)
+        case Format.I:
+            rd, rs1, imm = operands
+            return encode_i(op, rd, rs1, _imm(imm, "imm12"))
+        case Format.LS:
+            rd, addr = operands
+            if not isinstance(addr, Addr):
+                msg = f"{op}: второй операнд должен быть адресом [base+off], получено {addr!r}"
+                raise TypeError(msg)
+            return encode_ls(op, rd, addr.base, _imm(addr.offset, "offset"))
+        case Format.B:
+            rs1, rs2, off = operands
+            return encode_b(op, rs1, rs2, _imm(off, "offset"))
+        case Format.U:
+            rd, imm = operands
+            return encode_u(op, rd, _imm(imm, "imm20"))
+        case Format.J:
+            (addr,) = operands
+            return encode_j(op, _imm(addr, "addr26"))
+        case Format.NONE:
+            return encode_n(op)
+    msg = f"неизвестный формат для {op}"
+    raise ValueError(msg)
 
 def decode(word: int) -> Instruction:  # noqa: PLR0911
     op = Opcode((word >> OP_SHIFT) & OP_MASK)

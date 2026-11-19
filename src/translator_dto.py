@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from isa import Opcode, Term
+from common import Opcode, Term
 
 
 @dataclass
@@ -15,7 +15,7 @@ Operand = int | str | Addr
 
 
 @dataclass
-class Instruction:
+class AsmInstruction:
     op: Opcode | str
     operands: list[Operand]
 
@@ -54,5 +54,5 @@ class Conditional:
 @dataclass
 class Statement:
     label: str | None
-    body: Instruction | Directive | MacroCall | MacroDef | Conditional | Equ
+    body: AsmInstruction | Directive | MacroCall | MacroDef | Conditional | Equ
     term: Term

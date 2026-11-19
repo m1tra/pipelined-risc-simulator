@@ -1,10 +1,11 @@
 # транслятор
 import copy
 
-from isa import Term
+from isa import convert_asm_inst_to_inst
 from lexer import REGISTERS, Lexer
 from token_types import Token, TokenType
-from translator_dto import Addr, Conditional, Directive, Equ, Instruction, MacroCall, MacroDef, Operand, Statement
+from translator_dto import Addr, AsmInstruction, Conditional, Directive, Equ, MacroCall, MacroDef, Operand, Statement
+from common import Term
 
 ESCAPES = {"n": "\n", "t": "\t", "0": "\0", "\\": "\\", "'": "'", '"': '"'}  # TODO вынести всё
 
@@ -145,7 +146,7 @@ class Parser:
             return -value if isinstance(value, int) else value
         return token_value(first)
 
-    def parse_instruction(self, head: Token, line: list[Token]) -> Instruction:
+    def parse_instruction(self, head: Token, line: list[Token]) -> AsmInstruction:
         groups: list[list[Token]] = [[]]
         for tok in line:
             if tok.token == TokenType.COMMA:
@@ -153,7 +154,7 @@ class Parser:
             else:
                 groups[-1].append(tok)
   
-        return Instruction(head.text, [self.parse_operand(group) for group in groups])
+        return AsmInstruction(head.text, [self.parse_operand(group) for group in groups])
 
     def parse_directive(self, head, line):
         name = head.text
@@ -249,7 +250,7 @@ class Preprocessor:
         
         body = statement.body
         
-        if isinstance(body, Instruction):
+        if isinstance(body, AsmInstruction):
             
             body.operands = [self.change_operand(op, args, local_labels, suffix) for op in body.operands]
         
@@ -319,12 +320,43 @@ class Preprocessor:
                 case _:
                     out.append(statement)
         return out
+
+    
+class Translator:
+    
+    def __init__(self,statements: list[Statement]):
+        self.statements = statements
+    
+    def walk1(self):
+        
+        pointer = 0
+        
+        data = []
+        
+        for statement in self.statements:
+            body = statement.body
+            if isinstance(body, AsmInstruction):
+                data.append ({
+                    "addr": pointer,
+                    "instruction": body
+                })
+                pointer+=4
+
+        return data
+        
+            
+    def walk2(self, walk1_data):
+        words = []
+        for word in walk1_data:
+            inst: AsmInstruction = word["instruction"]
+            words.append(convert_asm_inst_to_inst(inst))
+        return words
                 
 src = """\
 .equ LED, 0x10        ; порт вывода
 
 .macro check value
-    li r1, value
+    addi r1, r2, 3
 .endm
 
 sw r1, [r2-4] 
@@ -338,9 +370,10 @@ lexer = Lexer(src, "sadf")
 tokens = lexer.get_tokens()
 
 parser = Parser(tokens)
-for i in parser.parse():
-    print(i)
 
-
-Preprocessor().run(parser.parse())
+str = Preprocessor().run(parser.parse())
     
+translator = Translator(str).walk1()
+
+print(Translator(str).walk2(translator))
+
