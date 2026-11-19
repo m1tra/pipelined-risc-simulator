@@ -1,10 +1,11 @@
 # транслятор
 import copy
+from dataclasses import dataclass
 
-from isa import convert_asm_inst_to_inst
+from isa import convert_asm_inst_to_inst, get_listing, to_bytes
 from lexer import REGISTERS, Lexer
 from token_types import Token, TokenType
-from translator_dto import Addr, AsmInstruction, Conditional, Directive, Equ, MacroCall, MacroDef, Operand, Statement
+from translator_dto import Addr, AsmInstruction, Cell, Conditional, Directive, Equ, MacroCall, MacroDef, Operand, Statement
 from common import Term
 
 ESCAPES = {"n": "\n", "t": "\t", "0": "\0", "\\": "\\", "'": "'", '"': '"'}  # TODO вынести всё
@@ -320,7 +321,6 @@ class Preprocessor:
                 case _:
                     out.append(statement)
         return out
-
     
 class Translator:
     
@@ -331,26 +331,45 @@ class Translator:
         
         pointer = 0
         
-        data = []
+        cells = []
         
         for statement in self.statements:
             body = statement.body
             if isinstance(body, AsmInstruction):
-                data.append ({
-                    "addr": pointer,
-                    "instruction": body
-                })
+                cell = Cell(
+                    addr=pointer,
+                    word = None,
+                    statement = statement
+                )
+                cells.append(cell)
                 pointer+=4
 
-        return data
+        return cells
         
             
     def walk2(self, walk1_data):
-        words = []
-        for word in walk1_data:
-            inst: AsmInstruction = word["instruction"]
-            words.append(convert_asm_inst_to_inst(inst))
-        return words
+        for cell in walk1_data:
+            cell_body = cell.statement.body
+            inst: AsmInstruction = cell_body
+            cell.word = convert_asm_inst_to_inst(inst)
+        return walk1_data
+    
+class DumpFiles:
+    
+    def __init__(self, cells):
+        self.cells = cells
+    
+    def to_bin(self):
+        with open("out/out.bin", "wb") as f:
+            f.write(to_bytes([cell.word for cell in self.cells]))
+    
+    def to_listing(self):
+        with open("out/listing.txt", "w") as f:
+            f.write(get_listing([cell for cell in self.cells]))
+    
+    def to_hex(self):
+        pass
+        
                 
 src = """\
 .equ LED, 0x10        ; порт вывода
@@ -375,5 +394,14 @@ str = Preprocessor().run(parser.parse())
     
 translator = Translator(str).walk1()
 
-print(Translator(str).walk2(translator))
+cells = Translator(str).walk2(translator)
+
+
+
+files_instance = DumpFiles(cells)
+
+files_instance.to_listing()
+files_instance.to_bin()
+
+
 

@@ -56,3 +56,10 @@ class Statement:
     label: str | None
     body: AsmInstruction | Directive | MacroCall | MacroDef | Conditional | Equ
     term: Term
+    
+    
+@dataclass
+class Cell:
+    addr: int
+    word: int
+    statement: Statement

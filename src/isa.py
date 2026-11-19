@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from translator_dto import Addr, AsmInstruction
+from translator_dto import Addr, AsmInstruction, Cell
 from common import Opcode
 
 OP_SHIFT = 26
@@ -189,6 +189,15 @@ def to_bytes(words: list[int]) -> bytes:
         buf.extend(word.to_bytes(4, "little"))
 
     return bytes(buf)
+
+
+def get_listing(cells: list[Cell]):
+    listing_strings = ""
+    for cell in cells:
+
+        listing_strings += f"addr:{str(cell.addr)} word:{str(cell.word)} term:{str(cell.statement.term)}" + "\n"
+    return listing_strings
+    
 
 
 def from_bytes(data: bytes) -> list[int]:
