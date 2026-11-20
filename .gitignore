@@ -31,5 +31,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# на будущее
 out/*
+
+#drawio
+*.bkp
+*.drawio

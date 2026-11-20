@@ -3,7 +3,7 @@ import copy
 from dataclasses import dataclass
 
 from isa import convert_asm_inst_to_inst, get_listing, to_bytes
-from lexer import REGISTERS, Lexer
+from lexer import DIRECTIVES, REGISTERS, Lexer
 from token_types import Token, TokenType
 from translator_dto import Addr, AsmInstruction, Cell, Conditional, Directive, Equ, MacroCall, MacroDef, Operand, Statement
 from common import Term
@@ -326,33 +326,71 @@ class Translator:
     
     def __init__(self,statements: list[Statement]):
         self.statements = statements
+        self.section = ".text"
+        self.text_buf = bytearray()
+        self.data_buf = bytearray()
+        self.cells = []
     
     def walk1(self):
         
-        pointer = 0
+        ptr = {".text": 0, ".data": 0}
         
-        cells = []
-        
-        for statement in self.statements:
-            body = statement.body
-            if isinstance(body, AsmInstruction):
-                cell = Cell(
-                    addr=pointer,
-                    word = None,
-                    statement = statement
-                )
-                cells.append(cell)
-                pointer+=4
+        for st in self.statements:
+            match st.body:
+                case Directive(name=".text"):   self.section = ".text"
+                case Directive(name=".data"):   self.section = ".data"
+                case Directive(name=".org", args = [a]):    ptr[self.section] = a
+                case AsmInstruction():
+                    self.cells.append(Cell(
+                        self.section,
+                        ptr[self.section],
+                        None,
+                        st
+                    ))
+                    ptr[self.section]+=4
+                case Directive(name=".word", args = args):
+                    for _ in args:
+                        self.cells.append(Cell(
+                            self.section,
+                            ptr[self.section],
+                            None,
+                            st
+                        ))
+                        ptr[self.section]+=4
+                case Directive(name=".pstr", args = [args]):
+                    for _ in args:
+                        self.cells.append(Cell(
+                            self.section,
+                            ptr[self.section],
+                            None,
+                            st
+                        ))
+                        ptr[self.section]+=1
+                case Directive(name=".space", args = [n]):
+                    ptr[self.section]+=n
+                        
+        print(self.cells)
 
-        return cells
         
             
-    def walk2(self, walk1_data):
-        for cell in walk1_data:
+    def walk2(self):
+        print(self.cells)
+        for cell in self.cells:
+            
+            cell.word = cell_body.args[0]
             cell_body = cell.statement.body
-            inst: AsmInstruction = cell_body
-            cell.word = convert_asm_inst_to_inst(inst)
-        return walk1_data
+        
+            
+            if isinstance(cell_body, AsmInstruction):
+                inst: AsmInstruction = cell_body
+                cell.word = convert_asm_inst_to_inst(inst)
+                
+            elif isinstance(cell_body, Directive) and (cell_body.name == ".word" ):
+                cell.word = cell_body.args[0]
+            elif isinstance(cell_body, Directive) and (cell_body.name == ".byte" ):
+                cell.word = cell_body.args[0]
+                
+        
     
 class DumpFiles:
     
@@ -370,10 +408,22 @@ class DumpFiles:
     def to_hex(self):
         pass
         
+        
+class CLI:
+    
+    def __init__(self):
+        pass
+    
+    
                 
 src = """\
-.equ LED, 0x10        ; порт вывода
+.data
+.byte 0x20
+.word 0x233
+.pstr "hello"
 
+.text
+.org 0x100
 .macro check value
     addi r1, r2, 3
 .endm
@@ -392,16 +442,20 @@ parser = Parser(tokens)
 
 str = Preprocessor().run(parser.parse())
     
-translator = Translator(str).walk1()
-
-cells = Translator(str).walk2(translator)
+translator = Translator(str)
 
 
 
-files_instance = DumpFiles(cells)
+translator.walk1()
 
-files_instance.to_listing()
-files_instance.to_bin()
+# translator.walk2()
+
+
+
+# files_instance = DumpFiles(cells)
+
+# files_instance.to_listing()
+# files_instance.to_bin()
 
 
 

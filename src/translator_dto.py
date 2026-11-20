@@ -60,6 +60,7 @@ class Statement:
     
 @dataclass
 class Cell:
+    section: str
     addr: int
     word: int
     statement: Statement
