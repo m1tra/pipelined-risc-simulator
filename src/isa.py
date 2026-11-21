@@ -148,6 +148,7 @@ def encode(instruction: AsmInstruction) -> int:  # noqa: PLR0911
             rd, imm = operands
             return encode_u(op, rd, _imm(imm, "imm20"))
         case Format.J:
+            
             (addr,) = operands
             return encode_j(op, _imm(addr, "addr26"))
         case Format.NONE:
@@ -191,12 +192,13 @@ def to_bytes(words: list[int]) -> bytes:
     return bytes(buf)
 
 
-def get_listing(cells: list[Cell]):
-    listing_strings = ""
+def get_listing(cells: list[Cell], base: dict[str, int]) -> str:
+    lines = []
     for cell in cells:
-
-        listing_strings += f"addr:{str(cell.addr)} word:{str(cell.word)} term:{str(cell.statement.term)}" + "\n"
-    return listing_strings
+        addr = base[cell.segment] + cell.offset
+        hexs = cell.blob.hex(" ") if cell.blob else ""
+        lines.append(f"{addr:08x} - {hexs} - {cell.statement.term.text}")
+    return "\n".join(lines) + "\n"
     
 
 

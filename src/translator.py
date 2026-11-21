@@ -2,7 +2,7 @@
 import copy
 from dataclasses import dataclass
 
-from isa import convert_asm_inst_to_inst, get_listing, to_bytes
+from isa import convert_asm_inst_to_inst
 from lexer import DIRECTIVES, REGISTERS, Lexer
 from token_types import Token, TokenType
 from translator_dto import Addr, AsmInstruction, Cell, Conditional, Directive, Equ, MacroCall, MacroDef, Operand, Statement
@@ -304,8 +304,7 @@ class Preprocessor:
     def run(self, statements: list[Statement]) -> list[Statement]:
         out = []
         for statement in statements:
-            
-    
+
             match statement.body:
                 case MacroDef() as m:
                     self.macros[m.name] = m
@@ -324,23 +323,28 @@ class Preprocessor:
     
 class Translator:
     
-    def __init__(self,statements: list[Statement]):
+    def __init__(self, statements: list[Statement], consts: dict | None = None):
         self.statements = statements
+        self.consts = consts or {}
         self.section = ".text"
-        self.text_buf = bytearray()
-        self.data_buf = bytearray()
         self.cells = []
+        self.labels = {}
+        self.base = {}
     
     def walk1(self):
         
         ptr = {".text": 0, ".data": 0}
         
         for st in self.statements:
+            if st.label:
+                self.labels[st.label] = (self.section, ptr[self.section])
+
             match st.body:
                 case Directive(name=".text"):   self.section = ".text"
                 case Directive(name=".data"):   self.section = ".data"
                 case Directive(name=".org", args = [a]):    ptr[self.section] = a
                 case AsmInstruction():
+                    
                     self.cells.append(Cell(self.section, ptr[self.section], 4, None, st))
                     ptr[self.section] += 4
                 case Directive(name=".word", args=args):
@@ -354,63 +358,97 @@ class Translator:
                     ptr[self.section] += len(s) + 1
                 case Directive(name=".space", args=[n]):
                     ptr[self.section] += n
-                        
-        
+            
+        self.base = {".text": 0, ".data": (ptr[".text"] + 3) & ~3}
+
+    def resolve(self, value):
+        if isinstance(value, int):
+            return value
+        if value in self.consts:
+            return self.consts[value]
+        if value in self.labels:
+            seg, off = self.labels[value]
+            return self.base[seg] + off
+        raise ValueError(f"неизвестный символ {value!r}")
+
+    def resolve_operand(self, op):
+        if isinstance(op, str):
+            return self.resolve(op)
+        if isinstance(op, Addr) and isinstance(op.offset, str):
+            op.offset = self.resolve(op.offset)
+        return op
+
     def walk2(self):
         
         for cell in self.cells:
-            
             cell_body = cell.statement.body
-            
+
             match cell_body:
                 case AsmInstruction() as inst:
+                    inst.operands = [self.resolve_operand(o) for o in inst.operands]
                     cell.blob = convert_asm_inst_to_inst(inst).to_bytes(4, "little")
                 case Directive(name=".word", args=args):
-                    cell.blob = b"".join(a.to_bytes(4, "little") for a in args)
+                    cell.blob = b"".join(self.resolve(a).to_bytes(4, "little") for a in args)
                 case Directive(name=".byte", args=args):
-                    cell.blob = bytes(a & 0xFF for a in args)
+                    cell.blob = bytes(self.resolve(a) & 0xFF for a in args)
                 case Directive(name=".pstr", args=[s]):
                     cell.blob = bytes([len(s)]) + s.encode("ascii")
                 
         
     
 class DumpFiles:
-    
-    def __init__(self, cells):
+
+    def __init__(self, cells, base):
         self.cells = cells
-    
-    def to_bin(self):
-        with open("out/out.bin", "wb") as f:
-            f.write(to_bytes([cell.word for cell in self.cells]))
-    
-    def to_listing(self):
-        with open("out/listing.txt", "w") as f:
-            f.write(get_listing([cell for cell in self.cells]))
-    
-    def to_hex(self):
-        pass
-        
-        
+        self.base = base
+
+    def addr_of(self, cell):
+        return self.base[cell.segment] + cell.offset
+
+    def to_bin(self, path="out/out.bin"):
+        size = max((self.addr_of(c) + c.size for c in self.cells), default=0)
+        image = bytearray(size)
+        for cell in self.cells:
+            addr = self.addr_of(cell)
+            image[addr : addr + cell.size] = cell.blob
+        with open(path, "wb") as f:
+            f.write(image)
+            
+
+    def to_listing(self, path="out/listing.txt"):
+        lines = []
+        for cell in self.cells:
+            addr = self.addr_of(cell)
+            hexs = cell.blob.hex(" ")
+            lines.append(f"{addr:08x} - {hexs} - {cell.statement.term.text}")
+        with open(path, "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+
 class CLI:
-    
+
     def __init__(self):
         pass
-    
-    
-                
+
+
+
 src = """\
+.equ LED, 0x10
+
 .data
 .byte 0x20
 .word 0x233
-.pstr "hello"
-
+.word LED
+msg: .pstr "hello"
+org 0x100
 .text
-.org 0x100
 .macro check value
     addi r1, r2, 3
 .endm
 
-sw r1, [r2-4] 
+start: sw r1, [r2-4]
+
+j start
 
 @check 222
 """
@@ -422,25 +460,20 @@ tokens = lexer.get_tokens()
 
 parser = Parser(tokens)
 
-str = Preprocessor().run(parser.parse())
-    
-translator = Translator(str)
+preprocessor = Preprocessor()
+statements = preprocessor.run(parser.parse())
 
-
+translator = Translator(statements, preprocessor.consts)
 
 translator.walk1()
 
 translator.walk2()
 
+files_instance = DumpFiles(translator.cells, translator.base)
 
+files_instance.to_listing()
+files_instance.to_bin()
 
-
-
-
-# files_instance = DumpFiles(cells)
-
-# files_instance.to_listing()
-# files_instance.to_bin()
 
 
 
