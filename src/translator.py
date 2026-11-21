@@ -341,54 +341,36 @@ class Translator:
                 case Directive(name=".data"):   self.section = ".data"
                 case Directive(name=".org", args = [a]):    ptr[self.section] = a
                 case AsmInstruction():
-                    self.cells.append(Cell(
-                        self.section,
-                        ptr[self.section],
-                        None,
-                        st
-                    ))
-                    ptr[self.section]+=4
-                case Directive(name=".word", args = args):
-                    for _ in args:
-                        self.cells.append(Cell(
-                            self.section,
-                            ptr[self.section],
-                            None,
-                            st
-                        ))
-                        ptr[self.section]+=4
-                case Directive(name=".pstr", args = [args]):
-                    for _ in args:
-                        self.cells.append(Cell(
-                            self.section,
-                            ptr[self.section],
-                            None,
-                            st
-                        ))
-                        ptr[self.section]+=1
-                case Directive(name=".space", args = [n]):
-                    ptr[self.section]+=n
+                    self.cells.append(Cell(self.section, ptr[self.section], 4, None, st))
+                    ptr[self.section] += 4
+                case Directive(name=".word", args=args):
+                    self.cells.append(Cell(self.section, ptr[self.section], 4 * len(args), None, st)) 
+                    ptr[self.section] += 4 * len(args)
+                case Directive(name=".byte", args=args):
+                    self.cells.append(Cell(self.section, ptr[self.section], len(args), None, st))
+                    ptr[self.section] += len(args)
+                case Directive(name=".pstr", args=[s]):
+                    self.cells.append(Cell(self.section, ptr[self.section], len(s) + 1, None, st))
+                    ptr[self.section] += len(s) + 1
+                case Directive(name=".space", args=[n]):
+                    ptr[self.section] += n
                         
-        print(self.cells)
-
         
-            
     def walk2(self):
-        print(self.cells)
+        
         for cell in self.cells:
             
-            cell.word = cell_body.args[0]
             cell_body = cell.statement.body
-        
             
-            if isinstance(cell_body, AsmInstruction):
-                inst: AsmInstruction = cell_body
-                cell.word = convert_asm_inst_to_inst(inst)
-                
-            elif isinstance(cell_body, Directive) and (cell_body.name == ".word" ):
-                cell.word = cell_body.args[0]
-            elif isinstance(cell_body, Directive) and (cell_body.name == ".byte" ):
-                cell.word = cell_body.args[0]
+            match cell_body:
+                case AsmInstruction() as inst:
+                    cell.blob = convert_asm_inst_to_inst(inst).to_bytes(4, "little")
+                case Directive(name=".word", args=args):
+                    cell.blob = b"".join(a.to_bytes(4, "little") for a in args)
+                case Directive(name=".byte", args=args):
+                    cell.blob = bytes(a & 0xFF for a in args)
+                case Directive(name=".pstr", args=[s]):
+                    cell.blob = bytes([len(s)]) + s.encode("ascii")
                 
         
     
@@ -448,7 +430,10 @@ translator = Translator(str)
 
 translator.walk1()
 
-# translator.walk2()
+translator.walk2()
+
+
+
 
 
 

@@ -60,7 +60,8 @@ class Statement:
     
 @dataclass
 class Cell:
-    section: str
-    addr: int
-    word: int
+    segment: str
+    offset: int
+    size: int
+    blob: bytes | None
     statement: Statement
