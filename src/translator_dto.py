@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from common import Opcode, Term
+if TYPE_CHECKING:
+    from common import Opcode, Term
 
 
 @dataclass
@@ -30,7 +32,8 @@ class Directive:
 class MacroCall:
     name: str
     args: list[int | str]
-    
+
+
 @dataclass
 class Equ:
     name: str
@@ -54,10 +57,10 @@ class Conditional:
 @dataclass
 class Statement:
     label: str | None
-    body: AsmInstruction | Directive | MacroCall | MacroDef | Conditional | Equ
+    body: AsmInstruction | Directive | MacroCall | MacroDef | Conditional | Equ | None
     term: Term
-    
-    
+
+
 @dataclass
 class Cell:
     segment: str

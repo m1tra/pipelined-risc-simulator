@@ -12,7 +12,7 @@ class TokenType(StrEnum):
     REGISTER = "REGISTER"
     MNEMONIC = "MNEMONIC"
     DIRECTIVE = "DIRECTIVE"
-    
+
     COLON = "COLON"
     COMMA = "COMMA"
     LBRACKET = "LBRACKET"

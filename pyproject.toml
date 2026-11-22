@@ -7,6 +7,7 @@ select = ["ALL"]
 ignore = [
     "CPY001",   # копирайт-шапка не нужна
     "D",        # не требуем docstring в каждом модуле/функции
+    "COM812",   # конфликтует с ruff format (trailing commas)
 ]
 
 [tool.ruff.lint.per-file-ignores]

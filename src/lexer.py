@@ -1,4 +1,4 @@
-from isa import Opcode
+from common import Opcode
 from token_types import Token, TokenType
 
 DIRECTIVES = {

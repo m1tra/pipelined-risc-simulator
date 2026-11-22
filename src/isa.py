@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from translator_dto import Addr, AsmInstruction, Cell
 from common import Opcode
+from translator_dto import Addr, AsmInstruction, Cell, Operand
 
 OP_SHIFT = 26
 RD_SHIFT = 22
@@ -16,7 +16,6 @@ MASK26 = 0x3FFFFFF
 
 OP_MASK = 0x3F
 REG_MASK = 0x0F
-
 
 
 class Format(Enum):
@@ -111,50 +110,53 @@ def sign_extend(word: int, size: int) -> int:
     sign_pos = 1 << (size - 1)
     return (word ^ sign_pos) - sign_pos
 
+
 def convert_asm_inst_to_inst(inst: AsmInstruction) -> int:
     if isinstance(inst.op, str):
         inst.op = Opcode[inst.op.upper()]
     return encode(inst)
 
 
-def _imm(value: int | str, what: str) -> int:
-    if isinstance(value, str):
-        msg = f"неразрешённая метка/символ {value!r} в поле {what}"
-        raise ValueError(msg)
+def _imm(value: Operand, what: str) -> int:
+    if not isinstance(value, int):
+        msg = f"неразрешённый или неверный операнд {value!r} в поле {what}"
+        raise TypeError(msg)
     return value
 
 
 def encode(instruction: AsmInstruction) -> int:  # noqa: PLR0911
+    if isinstance(instruction.op, str):
+        instruction.op = Opcode[instruction.op.upper()]
     op = instruction.op
     operands = instruction.operands
 
     match OPCODE_FORMAT[op]:
         case Format.A:
             rd, rs1, rs2 = operands
-            return encode_a(op, rd, rs1, rs2)
+            return encode_a(op, _imm(rd, "rd"), _imm(rs1, "rs1"), _imm(rs2, "rs2"))
         case Format.I:
             rd, rs1, imm = operands
-            return encode_i(op, rd, rs1, _imm(imm, "imm12"))
+            return encode_i(op, _imm(rd, "rd"), _imm(rs1, "rs1"), _imm(imm, "imm12"))
         case Format.LS:
             rd, addr = operands
             if not isinstance(addr, Addr):
                 msg = f"{op}: второй операнд должен быть адресом [base+off], получено {addr!r}"
                 raise TypeError(msg)
-            return encode_ls(op, rd, addr.base, _imm(addr.offset, "offset"))
+            return encode_ls(op, _imm(rd, "rd"), addr.base, _imm(addr.offset, "offset"))
         case Format.B:
             rs1, rs2, off = operands
-            return encode_b(op, rs1, rs2, _imm(off, "offset"))
+            return encode_b(op, _imm(rs1, "rs1"), _imm(rs2, "rs2"), _imm(off, "offset"))
         case Format.U:
             rd, imm = operands
-            return encode_u(op, rd, _imm(imm, "imm20"))
+            return encode_u(op, _imm(rd, "rd"), _imm(imm, "imm20"))
         case Format.J:
-            
             (addr,) = operands
             return encode_j(op, _imm(addr, "addr26"))
         case Format.NONE:
             return encode_n(op)
     msg = f"неизвестный формат для {op}"
     raise ValueError(msg)
+
 
 def decode(word: int) -> Instruction:  # noqa: PLR0911
     op = Opcode((word >> OP_SHIFT) & OP_MASK)
@@ -199,7 +201,6 @@ def get_listing(cells: list[Cell], base: dict[str, int]) -> str:
         hexs = cell.blob.hex(" ") if cell.blob else ""
         lines.append(f"{addr:08x} - {hexs} - {cell.statement.term.text}")
     return "\n".join(lines) + "\n"
-    
 
 
 def from_bytes(data: bytes) -> list[int]:
