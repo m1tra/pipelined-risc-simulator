@@ -1,45 +1,46 @@
 from dataclasses import dataclass
 
+# TODO вынести в конфиг
+MEM_SIZE = 256
 
-@dataclass
+
 class RegisterFile:
-    r0: int
-    r1: int
-    r2: int
-    r3: int
-    r4: int
-    r5: int
-    r6: int
-    r7: int
-    r8: int
-    r9: int
-    r10: int
-    r11: int
-    r12: int
-    r13: int
-    r14: int
-    r15: int
-    
-@dataclass
-class InstructionFetchState:
-    ir: int
-    pc: int
-    
+    def __init__(self):
+        self.regs: int = [0] * 16
+
+    def read(self, n: int) -> int:
+        return 0 if n == 0 else self.regs[n]
+
+    def write(self, n: int, val: int) -> None:
+        if n != 0:
+            self.regs[n] = val
+
+
 @dataclass
 class IFID:
     ir: int
-    pc: int
+    pc4: int
+
 
 @dataclass
 class IDEX:
     imm: int
-    rs1:int
-    rs2:int
-    rd:int
-    
+    rs1: int
+    rs2: int
+    rd: int
+
+
+@dataclass
+class FlagResiter:
+    Z: bool
+    N: bool
+    V: bool
+    C: bool
+
+
 class Datapath:
-    
-    def __init__():
-        pass
-    
-    
+    def __init__(self):
+        self.mem = bytearray(MEM_SIZE)
+        self.rf = RegisterFile
+        self.pc = 0
+        self.flags = FlagResiter
