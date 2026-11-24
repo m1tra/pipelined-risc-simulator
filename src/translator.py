@@ -437,25 +437,9 @@ class DumpFiles:
 
 def main() -> None:
     src = """\
-.equ LED, 0x10
+addi r5, r6, 11
+sw r5, r2
 
-.data
-.byte 0x20
-.word 0x233
-.word LED
-msg: .pstr "hello"
-
-.text
-.org 0x100
-.macro check value
-    addi r1, r2, 3
-.endm
-
-start: sw r1, [r2-4]
-
-j start
-
-@check 222
 """
 
     lexer = Lexer(src, "example.asm")
