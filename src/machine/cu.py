@@ -34,6 +34,7 @@ class ControlUnit:
 
         # такт 2 (ID): декод + чтение регистров
         inst = decode(ir)
+        # 
         rs1_val = dp.rf.read(inst.rs1)
         rs2_val = dp.rf.read(inst.rs2)
         imm = inst.imm
