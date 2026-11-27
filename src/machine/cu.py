@@ -1,10 +1,11 @@
 from enum import Enum, auto
 
+
 from common import Opcode
 from isa import Instruction, decode
 from machine.alu import AluOp, Flags
 from machine.datapath import Datapath
-from machine.signals import AddrMuxSignals, AluLeftMux, AluRightMux, Controls, MemSize
+from machine.signals import AddrMuxSignals, AluLeftMux, AluRightMux, Controls, MemSize, PCMuxSignals, RFWriteSignals
 
 
 ALU_MAP = {
@@ -57,12 +58,15 @@ class ControlUnit:
         self.dp.begin_tick()
     
         inst = decode(self.dp.ir)
+        
         self.dp.rd = inst.rd
         self.dp.rs1 = inst.rs1
         self.dp.rs2 = inst.rs2
         self.dp.imm = inst.imm
         
         opcode: Opcode = inst.opcode
+        
+        flags: Flags = self.dp.flags
         
         
         match self.state:
@@ -132,7 +136,7 @@ class ControlUnit:
                     operation=alu_op,
                     sel_r_alu=AluRightMux.RS2_VAL,
                     sel_l_alu=AluLeftMux.RS1_VAL,
-                    ld_flags=1
+                    ld_flags=True
                 )
                 
             case Opcode.ADDI:
@@ -141,7 +145,7 @@ class ControlUnit:
                     operation=alu_op,
                     sel_r_alu=AluRightMux.IMM,
                     sel_l_alu=AluLeftMux.RS1_VAL,
-                    ld_flags=1
+                    ld_flags=True
                 )
             case Opcode.LUI:
                 # TODO
@@ -165,15 +169,200 @@ class ControlUnit:
                     sel_l_alu=AluLeftMux.RS1_VAL,
                 )
             
+            case (
+                Opcode.BEQ
+                | Opcode.BNE
+                | Opcode.BLT
+                | Opcode.BGE
+                | Opcode.BLTU
+                | Opcode.BGEU
+            ):
+                # jump b_t
+                alu_op = ALU_MAP[Opcode.SUB]
+                return Controls(
+                    operation=alu_op,
+                    sel_r_alu=AluRightMux.RS2_VAL,
+                    sel_l_alu=AluLeftMux.RS1_VAL,
+                    ld_flags=True
+                )
+            case Opcode.J:
+                return Controls(
+                    operation=AluOp.PASS_B,
+                    sel_r_alu=AluRightMux.IMM,
+                )
+            # `call label` - `ra <- PC + 4`, затем `PC <- addr(label)` (вызов процедуры)
+            case Opcode.CALL:
+                return Controls(
+                    operation=AluOp.PASS_B,
+                    sel_r_alu=AluRightMux.IMM,
+                )
+            # Возврат по адресу из ra.
+            case Opcode.RET:
+                return Controls(
+                    operation=AluOp.PASS_A,
+                    sel_l_alu=AluLeftMux.RS1_VAL,
+                )
+            # Пустая инструкция.
+            case Opcode.NOP:
+                return Controls()
+            
+            # Остановка процессора.
+            case Opcode.HALT:
+                return Controls(halt=True)
+            
+            case Opcode.IRET | Opcode.EI | Opcode.DI:
+                raise NotImplementedError(
+                    "Прерывания пока не реализованы"
+                )
+
+            case _:
+                raise ValueError(f"Неизвестный opcode: {opcode}")
+            
     
-    def memory(self):
-        pass
+    def memory(self, opcode: Opcode) -> Controls:
+        match opcode:
+            case Opcode.SW:
+                return Controls(
+                    mem_req=True,
+                    mem_we=True,
+                    sel_addr=AddrMuxSignals.ALU,
+                    mem_size=MemSize.WORD,
+                )
     
-    def branch_target(self):
-        pass
+            case Opcode.SB:
+                return Controls(
+                    mem_req=True,
+                    mem_we=True,
+                    sel_addr=AddrMuxSignals.ALU,
+                    mem_size=MemSize.BYTE,
+                )
     
-    def writeback(self):
-        pass
+            case Opcode.LW:
+                return Controls(
+                    mem_req=True,
+                    mem_we=False,
+                    sel_addr=AddrMuxSignals.ALU,
+                    mem_size=MemSize.WORD,
+                )
+    
+            case Opcode.LBU:
+                return Controls(
+                    mem_req=True,
+                    mem_we=False,
+                    sel_addr=AddrMuxSignals.ALU,
+                    mem_size=MemSize.BYTE,
+                )
+    
+            case _:
+                raise ValueError(
+                    f"Инструкция {opcode} не работает с памятью"
+                )
+            
+          
+    
+    def branch_target(self, opcode: Opcode, flags: Flags):
+    
+        match opcode:
+
+            case Opcode.BEQ:
+                taken = flags.Z
+                
+            case Opcode.BNE:
+                taken =  not flags.Z
+                
+            case Opcode.BLT:
+                taken = flags.N != flags.V
+
+            case Opcode.BGE:
+                taken = flags.N == flags.V
+                
+            case Opcode.BLTU:
+                taken = not flags.C
+
+            case Opcode.BGEU:
+                taken = flags.C
+            
+        return Controls(
+            operation=AluOp.PASS_B,
+            sel_r_alu=AluRightMux.IMM,
+            ld_pc=True,
+            sel_pc=(
+                PCMuxSignals.ALU
+                if taken
+                else PCMuxSignals.PC4
+            )
+        )
+    
+    def writeback(self, opcode: Opcode):
+        
+        match opcode:
+            case (
+                Opcode.ADD
+                | Opcode.SUB
+                | Opcode.MUL
+                | Opcode.DIV
+                | Opcode.AND
+                | Opcode.OR
+                | Opcode.XOR
+                | Opcode.SLL
+                | Opcode.SRL
+                | Opcode.SRA
+                | Opcode.ADDI
+                | Opcode.LUI
+            ):
+                return Controls(
+                    rf_we=True,
+                    rf_req=True,
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.PC4,
+                    sel_write=RFWriteSignals.ALU
+                )
+            case (
+                Opcode.LW 
+                | Opcode.LBU
+            ):
+                return Controls(
+                    rf_req=True,
+                    rf_we=True,
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.PC4,
+                    sel_write=RFWriteSignals.MEM
+                )
+        
+            case (
+                Opcode.SW 
+                | Opcode.SB
+                | Opcode.NOP
+            ):
+                return Controls(
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.PC4,
+                )
+            
+            case Opcode.CALL:
+                # TODO переделать логику для декода через костыль не получилось как с жампом нужно r15 в декод класть
+                return Controls(
+                    rf_req=True,
+                    rf_we=True,
+                    sel_write=RFWriteSignals.PC4,
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.ALU,
+                    
+                )
+            
+            case Opcode.J:
+                # TODO класть r0 в жамп раз уж переделываю и call
+                return Controls(
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.ALU,      
+                )
+
+            case Opcode.RET:
+                # TODO переделать decode ra -> PC
+                return Controls(
+                    ld_pc=True,
+                    sel_pc=PCMuxSignals.ALU,   
+                )
     
     def execute_controls(self, c: Controls):
         dp = self.dp

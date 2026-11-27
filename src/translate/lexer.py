@@ -1,4 +1,4 @@
-from translate.common import Opcode
+from common import Opcode
 from translate.token_types import Token, TokenType
 
 DIRECTIVES = {

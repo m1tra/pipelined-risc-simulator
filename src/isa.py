@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from translate.common import Opcode
+from common import Opcode
 from translate.translator_dto import Addr, AsmInstruction, Cell, Operand
 
 OP_SHIFT = 26

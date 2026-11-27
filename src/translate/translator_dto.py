@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from translate.common import Opcode, Term
+    from common import Opcode, Term
 
 
 @dataclass

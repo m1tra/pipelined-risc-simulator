@@ -17,7 +17,8 @@ class AluOp(IntEnum):
     SLL = 0x07
     SRL = 0x08
     SRA = 0x09
-    PASS_A = 0x0A  # think: ret - PC <- ra
+    PASS_A = 0x0A  # think: ret - PC <- ra 
+    PASS_B = 0x0B  # for jmp 
 
 
 @dataclass
@@ -95,6 +96,10 @@ def alu(op: AluOp, a: int, b: int) -> tuple[int, Flags]:
 
     elif op == AluOp.PASS_A:
         res = ua
+        _set_zn(flags, res)
+
+    elif op == AluOp.PASS_B:
+        res = ub
         _set_zn(flags, res)
 
     else:

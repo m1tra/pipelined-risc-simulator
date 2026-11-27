@@ -130,13 +130,8 @@ class Datapath:
 
     def begin_tick(self) -> None:
         self.mem.mem_rdy = False
-        
-    def decode_fields(self, inst: Instruction) -> None:
-        self.rs1 = inst.rs1
-        self.rs2 = inst.rs2
-        self.rd = inst.rd
-        self.imm = inst.imm
         self.pc4 = u32(self.pc + 4)
+        
 
     def rs1_mux(self) -> int:
         self.rs1_val = self.rf.read(self.rs1)
@@ -205,8 +200,8 @@ class Datapath:
         self.ir = self.mem_read_data
         
 
-    def pc_mux(self, sel_pc: PCMuxSignals):
-        if (sel_pc == PCMuxSignals.PC4):
+    def pc_mux(self, sel_pc: PCMuxSignals) -> None:
+        if sel_pc == PCMuxSignals.PC4:
             self.pc_bus = self.pc4
         else:
             self.pc_bus = self.alu_result
