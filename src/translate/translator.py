@@ -2,11 +2,11 @@
 import copy
 from pathlib import Path
 
-from common import Term
-from isa import convert_asm_inst_to_inst
-from lexer import REGISTERS, Lexer
-from token_types import Token, TokenType
-from translator_dto import (
+from translate.common import Term
+from translate.isa import convert_asm_inst_to_inst
+from translate.lexer import REGISTERS, Lexer
+from translate.token_types import Token, TokenType
+from translate.translator_dto import (
     Addr,
     AsmInstruction,
     Cell,

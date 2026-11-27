@@ -1,5 +1,5 @@
-from common import Opcode
-from isa import Instruction, decode
+from translate.common import Opcode
+from translate.isa import Instruction, decode
 from machine.alu import AluOp
 from machine.datapath import Datapath
 

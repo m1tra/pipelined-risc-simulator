@@ -1,5 +1,5 @@
-from common import Opcode
-from token_types import Token, TokenType
+from translate.common import Opcode
+from translate.token_types import Token, TokenType
 
 DIRECTIVES = {
     ".text",
