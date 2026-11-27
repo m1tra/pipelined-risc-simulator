@@ -196,7 +196,7 @@ class Datapath:
         # think 'bout rf_we also in mem
         self.rf.write(self.rd, self.rf_write_bus)
     
-    def read_rf(self):
+    def read_rf_rd(self):
         
         self.rd_val = self.rf.read(self.rd)
     
