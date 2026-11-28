@@ -1,11 +1,11 @@
 
 
-# TODO в config
 from isa import Instruction
 from machine.alu import AluOp, Flags, alu, u32
 from machine.signals import AddrMuxSignals, AluLeftMux, AluRightMux, MemSize, PCMuxSignals, RFWriteSignals
 
 BYTE_MASK = 0xFF
+# TODO в config
 
 MEM_SIZE = 4096
 PORT_IN = 0xF0
@@ -25,6 +25,9 @@ class RegisterFile:
     def write(self, n: int, val: int) -> None:
         if n != 0:
             self.regs[n] = u32(val)
+            
+    def rf_dump(self):
+        return self.regs
             
             
 class Memory:
@@ -95,6 +98,8 @@ class Memory:
             raise ValueError(msg)
         self.memory[start:end] = data
         
+    def mem_dump(self):
+        return self.memory
 
 class Datapath:
 
@@ -192,9 +197,10 @@ class Datapath:
         self.rf.write(self.rd, self.rf_write_bus)
     
     def read_rf_rd(self):
+
         
         self.rd_val = self.rf.read(self.rd)
-    
+        
     def ir_latch(self):
     
         self.ir = self.mem_read_data

@@ -167,6 +167,8 @@ class Parser:
                 groups.append([])
             else:
                 groups[-1].append(tok)
+                
+        groups = [g for g in groups if g]
 
         return AsmInstruction(head.text, [self.parse_operand(group) for group in groups])
 
@@ -437,9 +439,9 @@ class DumpFiles:
 
 def main() -> None:
     src = """\
-addi r5, r6, 11
-sw r5, r2
-
+addi r5, r6, 11 
+sw r5, [r2+2]
+halt
 """
 
     lexer = Lexer(src, "example.asm")

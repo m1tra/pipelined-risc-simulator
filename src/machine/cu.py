@@ -7,7 +7,6 @@ from machine.alu import AluOp, Flags
 from machine.datapath import Datapath
 from machine.signals import AddrMuxSignals, AluLeftMux, AluRightMux, Controls, MemSize, PCMuxSignals, RFWriteSignals
 
-
 ALU_MAP = {
     Opcode.ADD: AluOp.ADD,
     Opcode.SUB: AluOp.SUB,
@@ -33,6 +32,7 @@ BRANCHES = {
 LOAD_OPS = {Opcode.LW, Opcode.LBU}
 STORE_OPS = {Opcode.SW, Opcode.SB}
 INTERRUPT_OPS = {Opcode.EI, Opcode.DI, Opcode.IRET}
+
 
 class State(Enum):
     FETCH = auto()
@@ -77,11 +77,11 @@ class ControlUnit:
             case State.EXECUTION:
                 controls = self.execution(opcode)
             case State.MEMORY:
-                controls = self.memory(inst)
+                controls = self.memory(opcode)
             case State.BRANCH_TARGET:
-                controls = self.branch_target(inst)
+                controls = self.branch_target(opcode, flags)
             case State.WRITEBACK:
-                controls = self.writeback(inst)
+                controls = self.writeback(opcode)
             case _:
                 raise AssertionError(self.state)
     
@@ -93,13 +93,39 @@ class ControlUnit:
         if controls.halt:
             self.halted = True
         else:
-            self.state = self.next_state(inst)
+            self.state = self.next_state(opcode)
             
-    def next_state(inst):
-        pass
+    def next_state(self, opcode: Opcode) -> State:
+        match self.state:
+            case State.FETCH:
+                return State.DECODE
+
+            case State.DECODE:
+                return State.EXECUTION
+
+            case State.EXECUTION:
+                if opcode in LOAD_OPS or opcode in STORE_OPS:
+                    return State.MEMORY
+
+                if opcode in BRANCHES:
+                    return State.BRANCH_TARGET
+
+                return State.WRITEBACK
+
+            case State.MEMORY:
+                return State.WRITEBACK
+
+            case State.BRANCH_TARGET:
+                return State.FETCH
+
+            case State.WRITEBACK:
+                return State.FETCH
+
+        
      
               
     def fetch(self) -> Controls:
+        
         return Controls(
             ld_ir=True,
             sel_addr=AddrMuxSignals.PC,
@@ -116,6 +142,7 @@ class ControlUnit:
         )
         
     def execution(self, opcode: Opcode):
+        
         
         match opcode:
             # add rd,rs1,rs2
@@ -196,17 +223,16 @@ class ControlUnit:
                     operation=AluOp.PASS_B,
                     sel_r_alu=AluRightMux.IMM,
                 )
-            # Возврат по адресу из ra.
+
             case Opcode.RET:
                 return Controls(
                     operation=AluOp.PASS_A,
                     sel_l_alu=AluLeftMux.RS1_VAL,
                 )
-            # Пустая инструкция.
+                
             case Opcode.NOP:
                 return Controls()
             
-            # Остановка процессора.
             case Opcode.HALT:
                 return Controls(halt=True)
             
@@ -363,56 +389,47 @@ class ControlUnit:
                     ld_pc=True,
                     sel_pc=PCMuxSignals.ALU,   
                 )
-    
-    def execute_controls(self, c: Controls):
+    def execute_controls(self, c: Controls) -> None:
         dp = self.dp
-        
-        #alu 
-        # set alu right
-        if c.sel_r_alu:
+
+        #alu
+        if c.sel_r_alu is not None:
             dp.right_alu_mux(c.sel_r_alu)
-        # set alu left
-        if c.sel_l_alu:
+        if c.sel_l_alu is not None:
             dp.left_alu_mux(c.sel_l_alu)
-            
-        #alu exec
-        if c.operation:
-            dp.alu_exec(
-                c.operation,
-                c.ld_flags
-            )
-        
-        #mem req
+
+        if c.operation is not None:
+            dp.alu_exec(c.operation, c.ld_flags)
+
+        #mem
         if c.mem_req:
-            assert c.sel_addr
-            assert c.mem_size
-            
+            assert c.sel_addr is not None
+            assert c.mem_size is not None
+
             dp.addr_mux(c.sel_addr)
-            
+
             if c.mem_we:
                 dp.mem_write(c.mem_size)
             else:
                 dp.mem_read(c.mem_size)
-                
+
         #pc
         if c.ld_pc:
-            assert c.sel_pc
-            
+            assert c.sel_pc is not None
             dp.pc_mux(c.sel_pc)
-            dp.pc_latch()   
-        
+            dp.pc_latch()
+
         #ir
         if c.ld_ir:
             dp.ir_latch()
-            
+
         #rf
         if c.rf_req:
             if c.rf_we:
-                assert c.sel_write
-
+                assert c.sel_write is not None
                 dp.write_rf_mux(c.sel_write)
                 dp.write_rf()
             else:
                 dp.rs1_mux()
                 dp.rs2_mux()
-                dp.read_rf()
+                dp.read_rf_rd()

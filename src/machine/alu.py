@@ -23,11 +23,10 @@ class AluOp(IntEnum):
 
 @dataclass
 class Flags:
-    Z: bool
-    N: bool
-    V: bool
-    C: bool
-
+    Z: bool = False
+    N: bool = False
+    V: bool = False
+    C: bool = False
 
 def u32(x: int) -> int:
     return x & MASK32

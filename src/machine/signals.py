@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Literal
 
 from machine.alu import AluOp
 
@@ -15,12 +14,6 @@ class AluRightMux(Enum):
 class MemSize(Enum):
     BYTE = auto()
     WORD = auto()
-
-class Flags(Enum):
-    N = auto()
-    Z = auto()
-    V = auto()
-    C = auto()
 
 class AddrMuxSignals(Enum):
     ALU = auto()
@@ -37,28 +30,28 @@ class RFWriteSignals(Enum):
 
 @dataclass
 class Controls:
-    # aly
-    operation: AluOp | Literal[False] = False
-    sel_l_alu: AluLeftMux | Literal[False] = False
-    sel_r_alu: AluRightMux | Literal[False] = False
+    #alu
+    operation: AluOp | None = None
+    sel_l_alu: AluLeftMux | None = None
+    sel_r_alu: AluRightMux | None = None
     ld_flags: bool = False
 
-    # mem
-    sel_addr: AddrMuxSignals | Literal[False] = False
+    #mem
+    sel_addr: AddrMuxSignals | None = None
     mem_req: bool = False
-    mem_size: MemSize | Literal[False] = False
+    mem_size: MemSize | None = None
     mem_we: bool = False
 
-    # rf
+    #rf
     rf_req: bool = False
     rf_we: bool = False
-    sel_write: RFWriteSignals | Literal[False] = False
+    sel_write: RFWriteSignals | None = None
 
-    # ir
+    #ir
     ld_ir: bool = False
 
-    # pc
+    #pc
     ld_pc: bool = False
-    sel_pc: PCMuxSignals | Literal[False] = False
+    sel_pc: PCMuxSignals | None = None
 
     halt: bool = False
