@@ -42,7 +42,11 @@ def token_value(tok: Token) -> int | str:
     if tok.token == TokenType.NUMBER:
         return int(tok.text, 0)
     if tok.token == TokenType.CHAR:
-        return ord(decode_quoted(tok.text))
+        s = decode_quoted(tok.text)
+        if len(s) != 1:
+            msg = f"символьный литерал '{tok.text}' содержит {len(s)} символов, ожидался 1"
+            raise SyntaxError(msg)
+        return ord(s)
     if tok.token == TokenType.STRING:
         return decode_quoted(tok.text)
     return tok.text
@@ -175,16 +179,22 @@ class Parser:
     def parse_directive(self, head: Token, line: list[Token]) -> Directive | Equ:
         name = head.text
 
-        args = [token_value(tok) for tok in line if tok.token != TokenType.COMMA]
+        if name == ".pstr":
+            args = [
+                decode_quoted(tok.text)
+                if tok.token in (TokenType.CHAR, TokenType.STRING)
+                else token_value(tok)
+                for tok in line
+                if tok.token != TokenType.COMMA
+            ]
+        else:
+            args = [token_value(tok) for tok in line if tok.token != TokenType.COMMA]
 
         if name == ".equ":
             return Equ(str(args[0]), args[1])
 
-        return Directive(
-            name,
-            args,
-        )
-
+        return Directive(name, args)
+    
     def parse_macro_call(self, line: list[Token]) -> MacroCall:
         name = line[0].text
         args = [token_value(tok) for tok in line[1:] if tok.token != TokenType.COMMA]
@@ -439,9 +449,20 @@ class DumpFiles:
 
 def main() -> None:
     src = """\
-addi r5, r6, 11 
-sw r5, [r2+2]
-halt
+.data
+string:  .pstr 'Hello world'
+
+.text
+    addi r1, r0, string
+    lbu  r2, [r1+0]
+    addi r1, r1, 1
+loop:
+    lbu  r3, [r1+0]
+    sb   r3, [r0+0x84]
+    addi r1, r1, 1
+    addi r2, r2, -1
+    bne  r2, r0, loop
+    halt
 """
 
     lexer = Lexer(src, "example.asm")

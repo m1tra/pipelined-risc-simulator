@@ -205,3 +205,26 @@ def get_listing(cells: list[Cell], base: dict[str, int]) -> str:
 
 def from_bytes(data: bytes) -> list[int]:
     return [int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)]
+
+
+
+def mnemonic(word: int) -> str:
+    if word == 0:
+        return "(empty)"
+    inst = decode(word)
+    op = inst.opcode.name.lower()
+    match OPCODE_FORMAT[inst.opcode]:
+        case Format.A:
+            return f"{op} r{inst.rd}, r{inst.rs1}, r{inst.rs2}"
+        case Format.I:
+            return f"{op} r{inst.rd}, r{inst.rs1}, {inst.imm}"
+        case Format.LS:
+            return f"{op} r{inst.rd}, [r{inst.rs1}+{inst.imm}]"
+        case Format.B:
+            return f"{op} r{inst.rs1}, r{inst.rs2}, {inst.imm}"
+        case Format.U:
+            return f"{op} r{inst.rd}, {inst.imm}"
+        case Format.J:
+            return f"{op} {inst.imm}"
+        case Format.NONE:
+            return op

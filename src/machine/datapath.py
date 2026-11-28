@@ -8,8 +8,8 @@ BYTE_MASK = 0xFF
 # TODO в config
 
 MEM_SIZE = 4096
-PORT_IN = 0xF0
-PORT_OUT = 0xF4
+PORT_IN = 0x80
+PORT_OUT = 0x84
 
 
 
@@ -49,6 +49,8 @@ class Memory:
 
         self.mem_read_data = 0
         self.mem_rdy = False
+        
+        self.io_log: list[str] = []
 
     def _check_ram_address(self, addr: int) -> None:
         if not 0 <= addr < len(self.memory):
@@ -64,6 +66,7 @@ class Memory:
 
     def write_byte(self, addr: int, data: int) -> None:
         if addr == self.port_out:
+            self.io_log.append(f"output '{chr(data & BYTE_MASK)}'")
             self.output_port.append(data & BYTE_MASK)
             return
 

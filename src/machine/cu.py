@@ -2,10 +2,14 @@ from enum import Enum, auto
 
 
 from common import Opcode
-from isa import Instruction, decode
+from isa import Instruction, decode, mnemonic
 from machine.alu import AluOp, Flags
 from machine.datapath import Datapath
 from machine.signals import AddrMuxSignals, AluLeftMux, AluRightMux, Controls, MemSize, PCMuxSignals, RFWriteSignals
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 ALU_MAP = {
     Opcode.ADD: AluOp.ADD,
@@ -50,6 +54,7 @@ class ControlUnit:
         self.state = State.FETCH
         self.halted = False
         self.signals = Controls()
+        self.compact_log: list[str] = []
         
     def step(self) -> None:
         if self.halted:
@@ -87,6 +92,25 @@ class ControlUnit:
     
         self.signals = controls
         self.execute_controls(controls)
+        
+        logger.debug(
+            "TICK %4d STATE=%-11s PC=0x%04x IR=0x%08x %s RF=%s",
+            self.tick,
+            self.state.name,
+            self.dp.pc,
+            self.dp.ir,
+            mnemonic(self.dp.ir),
+            " ".join(f"{r:08x}" for r in self.dp.rf.regs),
+        )
+        
+        if self.state == State.FETCH:
+            self.compact_log.append(
+                f"t{self.tick:04d} PC=0x{self.dp.pc:04x} {mnemonic(self.dp.ir)}"
+            )
+            
+        self.compact_log.extend(self.dp.mem.io_log)
+        self.dp.mem.io_log.clear()
+
     
         self.tick += 1
     
